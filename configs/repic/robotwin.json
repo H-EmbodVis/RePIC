@@ -1,0 +1,20 @@
+{
+  "_comment": {
+    "num_inference_steps": "Original Fast-WAM inference step count S.",
+    "picard_window": "Picard window p (paper Sec. 3.2, Eq. 3-5).",
+    "picard_tol": "Stride tolerance tau of Eq. 4/5 (threshold tau^2 * sigma^2).",
+    "stride_residual": "'prefix' evaluates the stride test of Eq. 4 on the executed prefix 1:R_n (paper default); 'full' uses the whole chunk 1:H (ablation, Tab. 5).",
+    "r_max": "R_max = the original Fast-WAM execution length R for RoboTwin; also the length of the first replan.",
+    "dynamic_replan_enabled": "Residual-guided commitment (paper Sec. 3.4, Eq. 8-9): R_{n+1} in {R_min, ..., R_max} with R_min = ceil(H/2) = 16.",
+    "dynamic_replan_log_mean": "mu of the log-normal commitment map R_{n+1} = round(R_max - (R_max - R_min) * Phi((log u_n - mu) / varsigma)), where u_n is the 0.75-quantile of the unexecuted-tail residuals (Eq. 9).",
+    "dynamic_replan_log_std": "varsigma of the same map."
+  },
+  "num_inference_steps": 10,
+  "picard_window": 10,
+  "picard_tol": 0.05,
+  "stride_residual": "prefix",
+  "r_max": 24,
+  "dynamic_replan_enabled": true,
+  "dynamic_replan_log_mean": -3.5,
+  "dynamic_replan_log_std": 0.5
+}

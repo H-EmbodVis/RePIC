@@ -1,0 +1,20 @@
+{
+  "_comment": {
+    "num_inference_steps": "Original Fast-WAM inference step count S.",
+    "picard_window": "Picard window p (paper Sec. 3.2, Eq. 3-5).",
+    "picard_tol": "Stride tolerance tau of Eq. 4/5 (threshold tau^2 * sigma^2).",
+    "stride_residual": "'prefix' evaluates the stride test of Eq. 4 on the executed prefix 1:R_n (paper default); 'full' uses the whole chunk 1:H (ablation, Tab. 5).",
+    "r_max": "Fixed R_max = the original Fast-WAM execution length R for LIBERO.",
+    "dynamic_replan_enabled": "Residual-guided commitment (paper Sec. 3.4) is disabled on LIBERO: R_max <= R_min = ceil(H/2) = 16, so R stays fixed.",
+    "dynamic_replan_log_mean": "mu of the log-normal commitment map R_{n+1} = round(R_max - (R_max - R_min) * Phi((log u_n - mu) / varsigma)); unused here.",
+    "dynamic_replan_log_std": "varsigma of the same map; unused here."
+  },
+  "num_inference_steps": 10,
+  "picard_window": 10,
+  "picard_tol": 0.05,
+  "stride_residual": "prefix",
+  "r_max": 10,
+  "dynamic_replan_enabled": false,
+  "dynamic_replan_log_mean": -3.5,
+  "dynamic_replan_log_std": 0.5
+}

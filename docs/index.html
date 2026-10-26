@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RePIC: Don't Throw Away the Solution</title>
+  <meta name="description" content="RePIC is a training-free sampler for flow-based robot policies. It reuses the previous replan's solver trajectory and refines it in parallel: 2.66x faster Fast-WAM on RoboTwin 2.0 and 2.75x on LIBERO at comparable success.">
+  <meta name="theme-color" content="#f6f5fa">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="RePIC: Don't Throw Away the Solution">
+  <meta property="og:description" content="Training-free acceleration of flow-based robot policies by reusing the previous solve.">
+  <meta property="og:image" content="https://h-embodvis.github.io/RePIC/static/images/social.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="citation_title" content="Don't Throw Away the Solution: Training-Free Acceleration of Flow-Based Robot Policies">
+  <meta name="citation_author" content="Wu, Xianjin">
+  <meta name="citation_author" content="Li, Xian">
+  <meta name="citation_author" content="Tang, Jianxiang">
+  <meta name="citation_author" content="Liang, Dingkang">
+  <meta name="citation_author" content="Bai, Xiang">
+  <meta name="citation_publication_date" content="2026">
+  <meta name="citation_pdf_url" content="https://h-embodvis.github.io/RePIC/static/pdfs/RePIC.pdf">
+  <link rel="icon" href="static/images/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="static/css/index.css">
+  <script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+
+<div class="bar">
+  <div class="wrap">
+    <a class="mark" href="#top">RePIC</a>
+    <nav aria-label="Sections">
+      <a href="#method">Method</a>
+      <a href="#why">Why it works</a>
+      <a href="#results">Results</a>
+      <a href="#robots">Robots</a>
+      <a href="#cite">Cite</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div>
+      <h1>Don&rsquo;t Throw Away the Solution</h1>
+      <p class="sub">Training-free acceleration of flow-based robot policies</p>
+
+      <ul class="authors">
+        <li><a href="https://github.com/HyperbolicCurve">Xianjin Wu</a><sup>1,*</sup></li>
+        <li><a href="https://github.com/lixian-lipton">Xian Li</a><sup>1,*</sup></li>
+        <li>Jianxiang Tang<sup>1</sup></li>
+        <li><a href="https://dk-liang.github.io/">Dingkang Liang</a><sup>1</sup></li>
+        <li><a href="https://scholar.google.com/citations?user=UeltiQ4AAAAJ&amp;hl=en">Xiang Bai</a><sup>1</sup></li>
+      </ul>
+      <p class="affil"><sup>1</sup> Huazhong University of Science and Technology &nbsp;&nbsp; <sup>*</sup> Equal contribution</p>
+
+      <p class="links">
+        <a class="btn solid" href="static/pdfs/RePIC.pdf">Paper (PDF)</a>
+        <a class="btn" href="https://github.com/H-EmbodVis/RePIC">Code</a>
+        <a class="btn" href="#cite">BibTeX</a>
+      </p>
+    </div>
+
+    <aside class="ledger" aria-label="Latency of the original sampler, RePIC and RePIC-Flash">
+      <h2>Action-generation latency per chunk, Fast-WAM</h2>
+      <div class="cols" aria-hidden="true"><span></span><span>latency</span><span>success</span></div>
+      <section>
+        <h3>RoboTwin 2.0</h3>
+        <ul>
+          <li><span>Original</span><span class="track"><span class="fill" style="--w:100"></span><span class="ms">578 ms</span></span><span class="sr">91.8%</span></li>
+          <li class="ours"><span>RePIC</span><span class="track"><span class="fill" style="--w:37.7"></span><span class="ms"><b>217.7 ms</b> 2.66&times;</span></span><span class="sr">91.8%</span></li>
+          <li class="ours"><span>RePIC-Flash</span><span class="track"><span class="fill" style="--w:17.5"></span><span class="ms"><b>101.2 ms</b> 5.71&times;</span></span><span class="sr">91.6%</span></li>
+        </ul>
+      </section>
+      <section>
+        <h3>LIBERO</h3>
+        <ul>
+          <li><span>Original</span><span class="track"><span class="fill" style="--w:100"></span><span class="ms">564 ms</span></span><span class="sr">97.6%</span></li>
+          <li class="ours"><span>RePIC</span><span class="track"><span class="fill" style="--w:36.3"></span><span class="ms"><b>204.8 ms</b> 2.75&times;</span></span><span class="sr">97.4%</span></li>
+          <li class="ours"><span>RePIC-Flash</span><span class="track"><span class="fill" style="--w:22.6"></span><span class="ms"><b>127.6 ms</b> 4.42&times;</span></span><span class="sr">97.0%</span></li>
+        </ul>
+      </section>
+      <p class="foot">NVIDIA RTX 4090 (48&nbsp;GB). Excludes observation capture, simulator stepping and action execution.</p>
+    </aside>
+  </div>
+</header>
+
+<main>
+  <div class="lede">
+    <div class="wrap">
+      <p>A flow-based robot policy denoises every action chunk from scratch and throws the solver trajectory away at the next replan, although consecutive replans solve nearly the same problem. RePIC keeps that trajectory: it shifts it to the new horizon, re-aligns it to fresh noise with a closed-form correction, and lets the pretrained network refine all states at once. Sequential network calls per chunk drop from 10 to about 2.6.</p>
+    </div>
+  </div>
+
+  <section class="block" id="overview">
+    <div class="wrap">
+      <h2 class="title">Reuse the solve, then refine it in parallel</h2>
+      <figure class="fig" style="margin-top:0">
+        <a href="static/images/intro.png" target="_blank" rel="noopener"><img src="static/images/intro.png" width="2400" height="1010" alt="Comparison of action decoding schemes, with RePIC reusing the previous trajectory and denoising in parallel, and latency and success on RoboTwin 2.0 and LIBERO"></a>
+        <figcaption><b>Overview.</b> Where autoregressive tokens, one-pass MLP heads and sequential flow matching pay many network passes per chunk, RePIC carries the unexecuted part of the previous solve into the next replan and updates the whole window in batched calls.</figcaption>
+      </figure>
+      <h3 class="sub-title">Abstract</h3>
+      <div class="prose">
+        <p>Standard samplers for flow-based robot policies generate each action chunk by sequential denoising and discard the solver trajectory at every replan, even though consecutive control cycles solve closely related problems. We introduce RePIC, a training-free sampler that turns this discarded trajectory into the initialization of the next solve. After an action prefix is executed, RePIC shifts the cached trajectory to the new horizon and re-aligns it to fresh noise with a closed-form correction that preserves the clean-action endpoint and needs no network evaluation. The pretrained velocity network then refines all transferred states under the new observation through batched fixed-point updates on the original integration grid, so an accurate initialization is converted into fewer sequential network calls.</p>
+        <p>On Fast-WAM, RePIC reduces sequential calls per chunk from 10 to 2.2&ndash;2.6 and action-generation latency from 578 to 218&nbsp;ms on RoboTwin 2.0 (2.66&times;) and from 564 to 205&nbsp;ms on LIBERO (2.75&times;) at comparable success; with system optimizations, RePIC-Flash reaches 5.71&times;. The same sampler accelerates &pi;<sub>0.5</sub> and GR00T N1.5 by 1.14&times; and 1.68&times; without retraining. Transferred drafts start 24&times; closer to the serial solution on the carried action steps, and on a physical robot Fast-WAM with RePIC succeeds in 77.5% of trials versus 66.3% for the original sampler.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block tint" id="method">
+    <div class="wrap">
+      <h2 class="title">One replan: transfer, refine, execute</h2>
+      <figure class="fig" style="margin-top:0">
+        <a href="static/images/pipeline.png" target="_blank" rel="noopener"><img src="static/images/pipeline.png" width="2400" height="740" alt="RePIC pipeline in three stages: trajectory transfer, parallel refinement, and execute and cache" loading="lazy"></a>
+      </figure>
+
+      <ol class="steps">
+        <li>
+          <h3>Trajectory transfer</h3>
+          <p>Shift the cached trajectory by the executed prefix <var>R</var><sub><var>n</var>&minus;1</sub> and re-align it to the fresh noise <var>&epsilon;</var><sub><var>n</var></sub>.</p>
+          <p class="calls">0 network calls</p>
+        </li>
+        <li>
+          <h3>Parallel refinement</h3>
+          <p>Update a sliding window of <var>p</var> integration intervals with batched fixed-point (Picard) steps. The window advances by the longest stride whose residual stays under <var>&tau;</var><sup>2</sup><var>&sigma;</var><sup>2</sup>, measured on the executed prefix.</p>
+          <p class="calls">1 batched call per round</p>
+        </li>
+        <li>
+          <h3>Execute and cache</h3>
+          <p>Execute the first <var>R</var><sub><var>n</var></sub> actions and cache the whole refined trajectory. Optionally, the residual on the unexecuted tail picks the next execution length.</p>
+          <p class="calls">0 network calls</p>
+        </li>
+      </ol>
+
+      <h3 class="sub-title">Noise-aligned transfer</h3>
+      <div class="prose">
+        <p>The cached trajectory belongs to the previous noise realization, while the new replan starts from fresh noise. For every noise level <var>s</var> and action position <var>h</var>, RePIC applies the correction below, where <var>q</var>(<var>h</var>) maps position <var>h</var> to the matching step of the previous chunk (<var>h</var> + <var>R</var><sub><var>n</var>&minus;1</sub> for the shifted suffix, <var>h</var> itself for newly exposed positions).</p>
+      </div>
+      <p class="eq">
+        <span class="tag">Eq. 7</span>
+        <var>x&#771;</var><sub><var>s</var>,<var>h</var></sub> = <var>x&#772;</var><sub><var>s</var>,<var>q</var>(<var>h</var>)</sub> + <var>&sigma;</var><sub><var>s</var></sub> ( <var>&epsilon;</var><sub><var>n</var>,<var>h</var></sub> &minus; <var>x&#772;</var><sub>0,<var>q</var>(<var>h</var>)</sub> )
+      </p>
+      <div class="prose">
+        <p>At <var>&sigma;</var> = 1 this returns the fresh noise at every position; at <var>&sigma;</var> = 0 the correction vanishes and the mapped clean actions are kept. In between, the cached trajectory keeps its deviation from the straight line between its endpoints. The result is an initialization, not a solution: refinement still evaluates the velocity field under the current observation.</p>
+      </div>
+
+      <div class="explorer" id="explorer">
+        <header>
+          <h3>Try the transfer</h3>
+          <p>Move through the 10 integration steps of the Fast-WAM schedule and turn the alignment off to see why shifting alone is not enough.</p>
+        </header>
+        <div class="legend" aria-hidden="true">
+          <span><i style="border-color:var(--grey)"></i>fresh noise &epsilon;<sub>n</sub></span>
+          <span><i style="border-color:var(--teal)"></i>shifted cache (previous replan)</span>
+          <span><i style="border-color:var(--violet)"></i>draft for the new replan</span>
+        </div>
+        <div class="plot">
+          <svg viewBox="0 0 960 300" role="img" aria-label="Action value against action step for fresh noise, the shifted cached trajectory, and the transferred draft at the selected noise level">
+            <rect id="ex-zone" class="s-zone" x="0" y="0" width="0" height="0"></rect>
+            <text id="ex-zone-l" class="s-label">shifted from previous chunk</text>
+            <text id="ex-zone-r" class="s-label" text-anchor="end">same-position prior</text>
+            <g id="ex-axis"></g>
+            <polyline id="ex-noise" class="s-noise" points=""></polyline>
+            <polyline id="ex-cache" class="s-cache" points=""></polyline>
+            <polyline id="ex-draft" class="s-draft" points=""></polyline>
+          </svg>
+        </div>
+        <div class="controls">
+          <div>
+            <label for="ex-level">Noise level s</label>
+            <input id="ex-level" type="range" min="0" max="10" step="1" value="0">
+            <div class="ticks" aria-hidden="true"><span>0 &middot; noise</span><span>10 &middot; clean</span></div>
+          </div>
+          <div>
+            <fieldset>
+              <legend class="sr-only">Executed prefix</legend>
+              <span style="font:600 0.9rem/1.3 var(--display)">Executed prefix R</span>
+              <label><input type="radio" name="ex-r" value="8"> 8</label>
+              <label><input type="radio" name="ex-r" value="16" checked> 16</label>
+              <label><input type="radio" name="ex-r" value="24"> 24</label>
+            </fieldset>
+            <label style="display:inline-flex;gap:.4rem;align-items:center;margin-top:.6rem;font-weight:500"><input id="ex-align" type="checkbox" checked> Align to fresh noise (Eq. 7)</label>
+          </div>
+          <p class="readout" id="ex-readout" aria-live="polite"></p>
+        </div>
+        <p class="note">Illustration with synthetic curves, horizon H = 32, computed with Eq. 6&ndash;7 and the S = 10, shift 5 schedule.</p>
+      </div>
+
+      <figure class="fig">
+        <a href="static/images/details.png" target="_blank" rel="noopener"><img src="static/images/details.png" width="2400" height="880" alt="Noise-aligned transfer, sliding-window refinement with stride, and residual-guided commitment" loading="lazy"></a>
+        <figcaption><b>Three mechanisms.</b> Left: alignment re-matches the cached states to the new noise while keeping the clean endpoint. Middle: each batched call checks the residual of every state in the window and slides forward to the first failure. Right: the residuals of the unexecuted tail choose the next execution length <var>R</var><sub><var>n</var>+1</sub> between <var>R</var><sub>min</sub> and <var>R</var><sub>max</sub>; larger residuals replan sooner.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block" id="why">
+    <div class="wrap">
+      <h2 class="title">A reused trajectory starts close to the answer</h2>
+      <div class="prose">
+        <p>We measure how far the initial draft is from the serial Euler solution (DraftRMS) on a RoboTwin 2.0 rollout with a fixed execution length of 24. The 8 steps carried over from the previous chunk start at 0.013&ndash;0.021, 24&times; below the 0.33&ndash;0.48 of a cold linear draft; the remaining positions, initialized from same-position states, are still 4.4&times; closer. A closer draft gives smaller residuals, longer strides and fewer calls.</p>
+      </div>
+      <figure class="fig">
+        <a href="static/images/draft_error.png" target="_blank" rel="noopener"><img src="static/images/draft_error.png" width="2400" height="1148" alt="Five consecutive replans with their cached trajectories and the draft error per action step for parallel-only and RePIC initialization" loading="lazy"></a>
+        <figcaption><b>Draft error.</b> Top: five consecutive replans; RePIC carries each unexecuted suffix into the next chunk. Bottom: DraftRMS per action step on a log scale.</figcaption>
+      </figure>
+      <div class="prose" style="margin-top:2rem">
+        <p>Reuse supplies only an initialization. Every refinement round evaluates the velocity field under the current observation, so a stale plan gets corrected rather than committed to.</p>
+      </div>
+      <figure class="fig">
+        <a href="static/images/correction.png" target="_blank" rel="noopener"><img src="static/images/correction.png" width="2400" height="830" alt="Two replans of a place-burger-fries rollout where refinement redirects the reused trajectory toward the burger and into the tray" loading="lazy"></a>
+        <figcaption><b>Refinement corrects the reused trajectory.</b> In two replans of a <i>place burger fries</i> rollout, refinement (teal) redirects the reused trajectory (amber) toward the burger when grasping and down into the tray when placing.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="block tint" id="results">
+    <div class="wrap">
+      <h2 class="title">Faster at comparable success</h2>
+      <div class="prose">
+        <p>RePIC reduces Fast-WAM latency 2.66&times; on RoboTwin 2.0 (91.8% success, unchanged) and 2.75&times; on LIBERO (97.55% to 97.35%). RePIC-Flash adds a CUDA Graph backend on LIBERO and a TensorRT FP16 backend on RoboTwin. On &pi;<sub>0.5</sub> and GR00T N1.5 the same sampler gives 1.14&times; and 1.68&times; without retraining; the gain depends on the sampler&rsquo;s share of latency and on the cost of a batched call relative to a single one.</p>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <caption>RoboTwin 2.0: 50 tasks, clean and randomized, 100 episodes each</caption>
+          <thead><tr><th>Method</th><th>Size</th><th>Clean</th><th>Random</th><th>Avg.</th><th>Latency (ms)</th><th>Speed (&times;)</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">LingBot-VA</th><td>5.3B</td><td>92.9</td><td>91.6</td><td>92.2</td><td>9356.00</td><td>0.06</td></tr>
+            <tr><th scope="row">Motus</th><td>8.0B</td><td>88.7</td><td>87.0</td><td>87.8</td><td>2177.00</td><td>0.27</td></tr>
+            <tr><th scope="row">Fast-WAM (Joint)</th><td>6.0B</td><td>90.8</td><td>90.3</td><td>90.6</td><td>1122.00</td><td>0.52</td></tr>
+            <tr><th scope="row">Enfold</th><td>3.0B</td><td>91.6</td><td>91.9</td><td>91.8</td><td>253.00</td><td>2.28</td></tr>
+            <tr><th scope="row">ImageWAM</th><td>8.6B</td><td>93.2</td><td>93.6</td><td>93.4</td><td>351.00</td><td>1.65</td></tr>
+            <tr><th scope="row">Faster-WAM (FC)</th><td>~6B</td><td>92.8</td><td>92.3</td><td>92.6</td><td>493.00</td><td>1.17</td></tr>
+            <tr><th scope="row">AHA-WAM</th><td>7.23B</td><td>93.4</td><td>92.2</td><td>92.8</td><td>535.50</td><td>1.08</td></tr>
+            <tr><th scope="row">Faster-WAM (DoT)</th><td>5.05B</td><td>89.7</td><td>88.6</td><td>89.2</td><td>&ndash;</td><td>&ndash;</td></tr>
+            <tr><th scope="row">Fast-WAM</th><td>6.0B</td><td>91.9</td><td>91.8</td><td>91.8</td><td>578.00</td><td>1.00</td></tr>
+            <tr><th scope="row">C<sup>3</sup>ache</th><td>6.0B</td><td>91.0</td><td>89.7</td><td>90.4</td><td>314.13&dagger;</td><td>1.84</td></tr>
+            <tr class="ours"><th scope="row">RePIC</th><td>6.0B</td><td>91.9</td><td>91.7</td><td>91.8</td><td>217.70</td><td>2.66</td></tr>
+            <tr class="ours"><th scope="row">RePIC-Flash</th><td>6.0B</td><td>92.4</td><td>90.7</td><td>91.6</td><td class="best">101.16</td><td class="best">5.71</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tnote">Success rate in %. Speed is relative to Fast-WAM. &dagger; Inferred from the reported speed-up and the reference latency.</p>
+
+      <div class="table-wrap">
+        <table class="data">
+          <caption>LIBERO: four suites, 50 episodes per task</caption>
+          <thead><tr><th>Method</th><th>Size</th><th>Spatial</th><th>Object</th><th>Goal</th><th>Long</th><th>Avg.</th><th>Latency (ms)</th><th>Speed (&times;)</th></tr></thead>
+          <tbody>
+            <tr class="group"><th colspan="9" scope="colgroup">Vision-language-action models</th></tr>
+            <tr><th scope="row">SmolVLA</th><td>0.45B</td><td>90.0</td><td>96.0</td><td>92.0</td><td>71.0</td><td>87.25</td><td>239.00</td><td>&ndash;</td></tr>
+            <tr><th scope="row">&pi;<sub>0.5</sub></th><td>~3.35B</td><td>98.0</td><td>98.6</td><td>96.8</td><td>90.8</td><td>96.05</td><td>70.24</td><td>1.00</td></tr>
+            <tr class="ours"><th scope="row">&pi;<sub>0.5</sub> + RePIC</th><td>~3.35B</td><td>97.6</td><td>98.2</td><td>96.0</td><td>91.2</td><td>95.75</td><td>61.35</td><td>1.14</td></tr>
+            <tr><th scope="row">GR00T N1.5</th><td>3.0B</td><td>89.0</td><td>91.4</td><td>88.8</td><td>78.4</td><td>86.90</td><td>120.62</td><td>1.00</td></tr>
+            <tr class="ours"><th scope="row">GR00T N1.5 + RePIC</th><td>3.0B</td><td>90.0</td><td>93.2</td><td>90.4</td><td>79.0</td><td>88.15</td><td>71.60</td><td>1.68</td></tr>
+            <tr class="group"><th colspan="9" scope="colgroup">World action models</th></tr>
+            <tr><th scope="row">LingBot-VA</th><td>5.3B</td><td>98.5</td><td>99.6</td><td>97.2</td><td>98.5</td><td>98.45</td><td>8623.00</td><td>0.07</td></tr>
+            <tr><th scope="row">Fast-WAM (Joint)</th><td>6.0B</td><td>99.6</td><td>99.4</td><td>98.2</td><td>96.8</td><td>98.50</td><td>1146.00</td><td>0.49</td></tr>
+            <tr><th scope="row">Enfold</th><td>3.0B</td><td>97.0</td><td>100.0</td><td>96.8</td><td>97.4</td><td>97.80</td><td>268.00</td><td>2.10</td></tr>
+            <tr><th scope="row">ImageWAM</th><td>8.6B</td><td>97.0</td><td>99.4</td><td>98.2</td><td>96.8</td><td>97.85</td><td>373.00</td><td>1.51</td></tr>
+            <tr><th scope="row">Faster-WAM (FC)</th><td>~6B</td><td>98.8</td><td>100.0</td><td>98.4</td><td>97.2</td><td>98.60</td><td>488.00</td><td>1.16</td></tr>
+            <tr><th scope="row">Faster-WAM (DoT)</th><td>5.05B</td><td>98.4</td><td>100.0</td><td>97.0</td><td>97.8</td><td>98.30</td><td>176.20&dagger;</td><td>3.20</td></tr>
+            <tr><th scope="row">Fast-WAM</th><td>6.0B</td><td>98.0</td><td>99.6</td><td>97.2</td><td>95.4</td><td>97.55</td><td>563.85</td><td>1.00</td></tr>
+            <tr><th scope="row">C<sup>3</sup>ache</th><td>6.0B</td><td>97.6</td><td>99.6</td><td>96.0</td><td>95.2</td><td>97.10</td><td>224.64&dagger;</td><td>2.51</td></tr>
+            <tr class="ours"><th scope="row">RePIC</th><td>6.0B</td><td>97.4</td><td>99.6</td><td>96.8</td><td>95.6</td><td>97.35</td><td>204.77</td><td>2.75</td></tr>
+            <tr class="ours"><th scope="row">RePIC-Flash</th><td>6.0B</td><td>97.4</td><td>99.4</td><td>96.4</td><td>94.8</td><td>97.00</td><td class="best">127.63</td><td class="best">4.42</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="tnote">Success rate in %. Speed is relative to the same backbone (VLAs) or to Fast-WAM (WAMs). &dagger; Inferred from the reported speed-up and the reference latency.</p>
+
+      <h3 class="sub-title">What each part buys</h3>
+      <div class="prose">
+        <p>Ablations on LIBERO with Fast-WAM. A batched call counts as one sequential call, and the cold-start draft call is included. Parallel refinement alone cuts the calls from 10 to 4; reuse brings them to 2.22. RePIC with all ten intervals is also faster than the three-step baseline while keeping 0.75 points more success.</p>
+      </div>
+      <div class="two">
+        <div class="table-wrap">
+          <table class="data">
+            <caption>Parallelism and reuse</caption>
+            <thead><tr><th>Method</th><th>S</th><th>Success</th><th>Calls</th><th>ms</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">Baseline</th><td>10</td><td>97.55</td><td>10.00</td><td>563.85</td></tr>
+              <tr><th scope="row">Baseline</th><td>5</td><td>96.90</td><td>5.00</td><td>333.00</td></tr>
+              <tr><th scope="row">Baseline</th><td>3</td><td>96.60</td><td>3.00</td><td>236.30</td></tr>
+              <tr><th scope="row">Baseline</th><td>1</td><td>95.35</td><td>1.00</td><td>151.80</td></tr>
+              <tr><th scope="row">Parallel only</th><td>10</td><td>97.10</td><td>4.00</td><td>298.10</td></tr>
+              <tr class="ours"><th scope="row">RePIC</th><td>10</td><td>97.35</td><td>2.22</td><td>204.77</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <caption>What to reuse</caption>
+            <thead><tr><th>Draft</th><th>Shift</th><th>Align</th><th>Success</th><th>Calls</th><th>ms</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">No reuse</th><td>&ndash;</td><td>&ndash;</td><td>97.10</td><td>4.00</td><td>298.10</td></tr>
+              <tr><th scope="row">Endpoint only</th><td>&#10003;</td><td>&ndash;</td><td>97.05</td><td>2.88</td><td>234.70</td></tr>
+              <tr><th scope="row">Full trajectory</th><td>&#10007;</td><td>&#10007;</td><td>96.35</td><td>3.03</td><td>245.80</td></tr>
+              <tr><th scope="row">Full trajectory</th><td>&#10007;</td><td>&#10003;</td><td>96.40</td><td>3.01</td><td>243.90</td></tr>
+              <tr><th scope="row">Full trajectory</th><td>&#10003;</td><td>&#10007;</td><td>97.15</td><td>4.87</td><td>331.40</td></tr>
+              <tr class="ours"><th scope="row">RePIC</th><td>&#10003;</td><td>&#10003;</td><td>97.35</td><td>2.22</td><td>204.77</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <figure class="fig">
+        <a href="static/images/sensitivity.png" target="_blank" rel="noopener"><img src="static/images/sensitivity.png" width="2400" height="1007" alt="Success, sequential calls and latency as the tolerance tau and the window size p vary" loading="lazy"></a>
+        <figcaption><b>Sensitivity.</b> A looser tolerance <var>&tau;</var> lowers calls and latency but also success; a smaller window <var>p</var> needs more calls. The default <var>&tau;</var> = 0.05, <var>p</var> = 10 reaches 97.35% success with 2.22 calls per chunk.</figcaption>
+      </figure>
+
+      <h3 class="sub-title">Scope</h3>
+      <div class="prose">
+        <p>RePIC applies to deterministic flow samplers whose states at different noise levels can be batched. It trades batched computation and memory (the cache stores (<var>S</var>+1)<var>Hd</var> values) for a shorter sequential path, so we report wall-clock latency next to call counts. It is evaluated under the standard receding-horizon protocol of each benchmark; abrupt observation changes are outside this scope.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="robots">
+    <div class="wrap">
+      <h2 class="title">On a real robot and in simulation</h2>
+      <div class="prose">
+        <p>We deploy Fast-WAM with and without RePIC on an Agilex Piper arm with the same GPU, using the RoboTwin 2.0 checkpoint fine-tuned on 400 real demonstrations mixed with simulation data. With RePIC the policy succeeds in 62 of 80 trials (77.5%) versus 53 (66.3%) for the original sampler, with higher success on three of four tasks. On hardware the control cycle is dominated by executing the action prefix, so faster generation shortens the pause at each replan rather than the task duration; at 20 trials per task the difference is within trial-to-trial variation.</p>
+      </div>
+
+      <div class="video-main">
+        <video controls playsinline preload="none" poster="static/videos/real_robot_overview.jpg" aria-label="Side-by-side real-robot comparison of Fast-WAM and RePIC on four tasks">
+          <source src="static/videos/real_robot_overview.mp4" type="video/mp4">
+        </video>
+      </div>
+      <p class="tnote">Supplementary demo: Fast-WAM (left) and RePIC (right), synchronous inference without post-processing, real time.</p>
+
+      <div class="pairs">
+        <div class="pair">
+          <h3>Grab Roller</h3>
+          <div class="clips">
+            <div><video muted loop playsinline preload="none" data-autoplay poster="static/videos/real_grab_roller_fastwam.jpg" aria-label="Fast-WAM grabbing the roller"><source src="static/videos/real_grab_roller_fastwam.mp4" type="video/mp4"></video><p class="cap">Fast-WAM</p></div>
+            <div><video muted loop playsinline preload="none" data-autoplay poster="static/videos/real_grab_roller_repic.jpg" aria-label="RePIC grabbing the roller"><source src="static/videos/real_grab_roller_repic.mp4" type="video/mp4"></video><p class="cap ours">RePIC</p></div>
+          </div>
+          <p class="rate">Success over 20 trials: 70% &rarr; 100%</p>
+        </div>
+        <div class="pair">
+          <h3>Move Card Away</h3>
+          <div class="clips">
+            <div><video muted loop playsinline preload="none" data-autoplay poster="static/videos/real_move_card_away_fastwam.jpg" aria-label="Fast-WAM moving the card away"><source src="static/videos/real_move_card_away_fastwam.mp4" type="video/mp4"></video><p class="cap">Fast-WAM</p></div>
+            <div><video muted loop playsinline preload="none" data-autoplay poster="static/videos/real_move_card_away_repic.jpg" aria-label="RePIC moving the card away"><source src="static/videos/real_move_card_away_repic.mp4" type="video/mp4"></video><p class="cap ours">RePIC</p></div>
+          </div>
+          <p class="rate">Success over 20 trials: 70% &rarr; 80%</p>
+        </div>
+        <div class="pair">
+          <h3>Stack Three Bowls</h3>
+          <div class="clips">
+            <div><video muted loop playsinline preload="none" data-autoplay poster="static/videos/real_stack_three_bowls_fastwam.jpg" aria-label="Fast-WAM stacking three bowls"><source src="static/videos/real_stack_three_bowls_fastwam.mp4" type="video/mp4"></video><p class="cap">Fast-WAM</p></div>
+            <div><video muted loop playsinline preload="none" data-autoplay poster="static/videos/real_stack_three_bowls_repic.jpg" aria-label="RePIC stacking three bowls"><source src="static/videos/real_stack_three_bowls_repic.mp4" type="video/mp4"></video><p class="cap ours">RePIC</p></div>
+          </div>
+          <p class="rate">Success over 20 trials: 60% &rarr; 50%</p>
+        </div>
+      </div>
+      <p class="tnote">Each clip is a single trial. The fourth task, Press Stapler, went from 65% to 80%.</p>
+
+      <figure class="fig">
+        <a href="static/images/real_robot.png" target="_blank" rel="noopener"><img src="static/images/real_robot.png" width="2400" height="495" alt="Stack Three Bowls rollout and success rates on four real-world tasks for Fast-WAM and RePIC" loading="lazy"></a>
+        <figcaption><b>Real-world deployment.</b> Left: a rollout of Stack Three Bowls. Right: success over 20 trials per task. Overall 66.3% for Fast-WAM and 77.5% with RePIC.</figcaption>
+      </figure>
+
+      <h3 class="sub-title">RoboTwin 2.0 rollouts</h3>
+      <div class="sim">
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_place_shoe.jpg" aria-label="Place shoe"><source src="static/videos/robotwin_place_shoe.mp4" type="video/mp4"></video><figcaption>Place shoe</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_lift_pot.jpg" aria-label="Lift pot"><source src="static/videos/robotwin_lift_pot.mp4" type="video/mp4"></video><figcaption>Lift pot</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_place_burger_fries.jpg" aria-label="Place burger fries"><source src="static/videos/robotwin_place_burger_fries.mp4" type="video/mp4"></video><figcaption>Place burger fries</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_place_object_basket.jpg" aria-label="Place object basket"><source src="static/videos/robotwin_place_object_basket.mp4" type="video/mp4"></video><figcaption>Place object basket</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_handover_block.jpg" aria-label="Handover block"><source src="static/videos/robotwin_handover_block.mp4" type="video/mp4"></video><figcaption>Handover block</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_stack_blocks_two.jpg" aria-label="Stack blocks two"><source src="static/videos/robotwin_stack_blocks_two.mp4" type="video/mp4"></video><figcaption>Stack blocks two</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_open_laptop.jpg" aria-label="Open laptop"><source src="static/videos/robotwin_open_laptop.mp4" type="video/mp4"></video><figcaption>Open laptop</figcaption></figure>
+        <figure><video muted loop playsinline preload="none" data-autoplay poster="static/videos/robotwin_stamp_seal.jpg" aria-label="Stamp seal"><source src="static/videos/robotwin_stamp_seal.mp4" type="video/mp4"></video><figcaption>Stamp seal</figcaption></figure>
+      </div>
+      <p class="tnote">Head-camera view of successful rollouts.</p>
+    </div>
+  </section>
+
+  <section class="block tint" id="cite">
+    <div class="wrap">
+      <h2 class="title">Cite RePIC</h2>
+      <div class="cite">
+        <pre id="bibtex">@misc{wu2026repic,
+  title={Don't Throw Away the Solution: Training-Free Acceleration of Flow-Based Robot Policies},
+  author={Xianjin Wu and Xian Li and Jianxiang Tang and Dingkang Liang and Xiang Bai},
+  year={2026},
+  note={Preprint}
+}</pre>
+        <button class="btn" id="copy-bibtex" type="button" aria-label="Copy BibTeX">Copy</button>
+      </div>
+      <p class="tnote" style="margin-top:1rem">The <code>main</code> branch is built on <a href="https://github.com/yuantianyuan01/FastWAM">Fast-WAM</a>; please cite it as well.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Code: <a href="https://github.com/H-EmbodVis/RePIC">github.com/H-EmbodVis/RePIC</a>, MIT License. Branches for Fast-WAM (<code>main</code>), &pi;<sub>0.5</sub> (<code>pi</code>) and GR00T N1.5 (<code>gr00t</code>).</p>
+    <p>RePIC builds on Fast-WAM, RoboTwin 2.0, LIBERO, OpenPI, Isaac-GR00T and Wan2.2. Huazhong University of Science and Technology.</p>
+  </div>
+</footer>
+
+<script src="static/js/index.js"></script>
+</body>
+</html>
