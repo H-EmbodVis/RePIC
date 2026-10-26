@@ -181,6 +181,16 @@ table.data tr.ours td, table.data tr.ours th { background: var(--violet-wash); f
 table.data tr.ours td:first-child, table.data tr.ours th { color: var(--violet-deep); box-shadow: inset 4px 0 0 var(--violet); }
 table.data .best { font-weight: 700; }
 .tnote { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
+
+/* collapsible long tables */
+details.more { margin-top: 1.5rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+details.more + details.more { margin-top: 0; border-top: 0; }
+details.more > summary { display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 0; cursor: pointer; list-style: none; font: 600 1.05rem/1.3 var(--display); }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::before { content: "+"; flex: none; width: 1.4rem; height: 1.4rem; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); font: 500 1rem/1 var(--display); color: var(--violet); }
+details.more[open] > summary::before { content: "\2212"; }
+details.more[open] { padding-bottom: 1rem; }
+details.more > .table-wrap { margin-top: 0.25rem; }
 .two { display: grid; gap: 1.5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
 
 /* ---------- video ---------- */

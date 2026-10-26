@@ -172,17 +172,17 @@
     zoneLabelR.setAttribute("x", W - MR - 4);
     zoneLabelR.setAttribute("y", MT + 12);
 
-    var msg = "Noise level s = " + s + " of " + S + " (σ = " + fmt(sg, 3) + "). ";
+    var msg = "s = " + s + " of " + S + " (\u03c3 = " + fmt(sg, 3) + "). ";
     if (s === 0) {
       msg += aligned
-        ? "At σ = 1 the correction swaps the old noise for the new one, so the draft equals the fresh noise εₙ at every position."
-        : "Without alignment the draft starts from the previous replan’s noise, which no longer matches the fresh noise εₙ (grey).";
+        ? "The draft equals the fresh noise \u03b5\u2099 at every position."
+        : "Without alignment the draft still carries the previous replan\u2019s noise, which no longer matches \u03b5\u2099 (grey).";
     } else if (s === S) {
-      msg += "At σ = 0 the correction vanishes: the draft is exactly the clean actions the previous solve produced, shifted to the new horizon.";
+      msg += "The draft is the previous clean actions, shifted to the new horizon.";
     } else {
       msg += aligned
-        ? "The draft is the shifted cached state plus σ times the gap between new and old noise, so the cached curve’s shape is kept and only its noise level is re-matched."
-        : "The draft is the shifted cached state, still tied to the previous noise realization.";
+        ? "The shifted cache keeps its shape; only its noise level is re-matched."
+        : "The shifted cache is still tied to the previous noise.";
     }
     out.textContent = msg;
   }

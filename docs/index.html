@@ -90,7 +90,7 @@
 <main>
   <div class="lede">
     <div class="wrap">
-      <p>A flow-based robot policy denoises every action chunk from scratch and throws the solver trajectory away at the next replan, although consecutive replans solve nearly the same problem. RePIC keeps that trajectory: it shifts it to the new horizon, re-aligns it to fresh noise with a closed-form correction, and lets the pretrained network refine all states at once. Sequential network calls per chunk drop from 10 to about 2.6.</p>
+      <p>A flow-based robot policy denoises every action chunk from scratch and discards the solver trajectory at the next replan, although consecutive replans solve nearly the same problem. RePIC keeps it: shift it to the new horizon, re-align it to fresh noise in closed form, and let the pretrained network refine all states at once. Sequential calls per chunk drop from 10 to about 2.6.</p>
     </div>
   </div>
 
@@ -99,13 +99,8 @@
       <h2 class="title">Reuse the solve, then refine it in parallel</h2>
       <figure class="fig" style="margin-top:0">
         <a href="static/images/intro.png" target="_blank" rel="noopener"><img src="static/images/intro.png" width="2400" height="1010" alt="Comparison of action decoding schemes, with RePIC reusing the previous trajectory and denoising in parallel, and latency and success on RoboTwin 2.0 and LIBERO"></a>
-        <figcaption><b>Overview.</b> Where autoregressive tokens, one-pass MLP heads and sequential flow matching pay many network passes per chunk, RePIC carries the unexecuted part of the previous solve into the next replan and updates the whole window in batched calls.</figcaption>
+        <figcaption><b>Overview.</b> RePIC carries the unexecuted part of the previous solve into the next replan and updates the whole window in batched calls.</figcaption>
       </figure>
-      <h3 class="sub-title">Abstract</h3>
-      <div class="prose">
-        <p>Standard samplers for flow-based robot policies generate each action chunk by sequential denoising and discard the solver trajectory at every replan, even though consecutive control cycles solve closely related problems. We introduce RePIC, a training-free sampler that turns this discarded trajectory into the initialization of the next solve. After an action prefix is executed, RePIC shifts the cached trajectory to the new horizon and re-aligns it to fresh noise with a closed-form correction that preserves the clean-action endpoint and needs no network evaluation. The pretrained velocity network then refines all transferred states under the new observation through batched fixed-point updates on the original integration grid, so an accurate initialization is converted into fewer sequential network calls.</p>
-        <p>On Fast-WAM, RePIC reduces sequential calls per chunk from 10 to 2.2&ndash;2.6 and action-generation latency from 578 to 218&nbsp;ms on RoboTwin 2.0 (2.66&times;) and from 564 to 205&nbsp;ms on LIBERO (2.75&times;) at comparable success; with system optimizations, RePIC-Flash reaches 5.71&times;. The same sampler accelerates &pi;<sub>0.5</sub> and GR00T N1.5 by 1.14&times; and 1.68&times; without retraining. Transferred drafts start 24&times; closer to the serial solution on the carried action steps, and on a physical robot Fast-WAM with RePIC succeeds in 77.5% of trials versus 66.3% for the original sampler.</p>
-      </div>
     </div>
   </section>
 
@@ -124,32 +119,29 @@
         </li>
         <li>
           <h3>Parallel refinement</h3>
-          <p>Update a sliding window of <var>p</var> integration intervals with batched fixed-point (Picard) steps. The window advances by the longest stride whose residual stays under <var>&tau;</var><sup>2</sup><var>&sigma;</var><sup>2</sup>, measured on the executed prefix.</p>
+          <p>Refine a sliding window of <var>p</var> steps with batched fixed-point (Picard) updates. It advances by the longest stride whose residual on the executed prefix stays under <var>&tau;</var><sup>2</sup><var>&sigma;</var><sup>2</sup>.</p>
           <p class="calls">1 batched call per round</p>
         </li>
         <li>
           <h3>Execute and cache</h3>
-          <p>Execute the first <var>R</var><sub><var>n</var></sub> actions and cache the whole refined trajectory. Optionally, the residual on the unexecuted tail picks the next execution length.</p>
+          <p>Execute the first <var>R</var><sub><var>n</var></sub> actions and cache the refined trajectory. Optionally, the tail residual picks the next execution length.</p>
           <p class="calls">0 network calls</p>
         </li>
       </ol>
 
       <h3 class="sub-title">Noise-aligned transfer</h3>
-      <div class="prose">
-        <p>The cached trajectory belongs to the previous noise realization, while the new replan starts from fresh noise. For every noise level <var>s</var> and action position <var>h</var>, RePIC applies the correction below, where <var>q</var>(<var>h</var>) maps position <var>h</var> to the matching step of the previous chunk (<var>h</var> + <var>R</var><sub><var>n</var>&minus;1</sub> for the shifted suffix, <var>h</var> itself for newly exposed positions).</p>
-      </div>
       <p class="eq">
         <span class="tag">Eq. 7</span>
         <var>x&#771;</var><sub><var>s</var>,<var>h</var></sub> = <var>x&#772;</var><sub><var>s</var>,<var>q</var>(<var>h</var>)</sub> + <var>&sigma;</var><sub><var>s</var></sub> ( <var>&epsilon;</var><sub><var>n</var>,<var>h</var></sub> &minus; <var>x&#772;</var><sub>0,<var>q</var>(<var>h</var>)</sub> )
       </p>
       <div class="prose">
-        <p>At <var>&sigma;</var> = 1 this returns the fresh noise at every position; at <var>&sigma;</var> = 0 the correction vanishes and the mapped clean actions are kept. In between, the cached trajectory keeps its deviation from the straight line between its endpoints. The result is an initialization, not a solution: refinement still evaluates the velocity field under the current observation.</p>
+        <p>Here <var>q</var>(<var>h</var>) maps position <var>h</var> to the matching step of the previous chunk. At <var>&sigma;</var> = 1 the draft is the fresh noise; at <var>&sigma;</var> = 0 it keeps the cached clean actions.</p>
       </div>
 
       <div class="explorer" id="explorer">
         <header>
           <h3>Try the transfer</h3>
-          <p>Move through the 10 integration steps of the Fast-WAM schedule and turn the alignment off to see why shifting alone is not enough.</p>
+          <p>Step through the noise levels and switch the alignment off to see what shifting alone leaves behind.</p>
         </header>
         <div class="legend" aria-hidden="true">
           <span><i style="border-color:var(--grey)"></i>fresh noise &epsilon;<sub>n</sub></span>
@@ -190,7 +182,7 @@
 
       <figure class="fig">
         <a href="static/images/details.png" target="_blank" rel="noopener"><img src="static/images/details.png" width="2400" height="880" alt="Noise-aligned transfer, sliding-window refinement with stride, and residual-guided commitment" loading="lazy"></a>
-        <figcaption><b>Three mechanisms.</b> Left: alignment re-matches the cached states to the new noise while keeping the clean endpoint. Middle: each batched call checks the residual of every state in the window and slides forward to the first failure. Right: the residuals of the unexecuted tail choose the next execution length <var>R</var><sub><var>n</var>+1</sub> between <var>R</var><sub>min</sub> and <var>R</var><sub>max</sub>; larger residuals replan sooner.</figcaption>
+        <figcaption><b>Three mechanisms.</b> Left: noise alignment. Middle: the stride of the sliding window. Right: residual-guided commitment of the next execution length <var>R</var><sub><var>n</var>+1</sub>.</figcaption>
       </figure>
     </div>
   </section>
@@ -199,18 +191,18 @@
     <div class="wrap">
       <h2 class="title">A reused trajectory starts close to the answer</h2>
       <div class="prose">
-        <p>We measure how far the initial draft is from the serial Euler solution (DraftRMS) on a RoboTwin 2.0 rollout with a fixed execution length of 24. The 8 steps carried over from the previous chunk start at 0.013&ndash;0.021, 24&times; below the 0.33&ndash;0.48 of a cold linear draft; the remaining positions, initialized from same-position states, are still 4.4&times; closer. A closer draft gives smaller residuals, longer strides and fewer calls.</p>
+        <p>On a RoboTwin 2.0 rollout, the 8 steps carried over from the previous chunk start 24&times; closer to the serial solution than a cold draft, and the remaining positions 4.4&times; closer. A closer draft means smaller residuals, longer strides and fewer calls.</p>
       </div>
       <figure class="fig">
         <a href="static/images/draft_error.png" target="_blank" rel="noopener"><img src="static/images/draft_error.png" width="2400" height="1148" alt="Five consecutive replans with their cached trajectories and the draft error per action step for parallel-only and RePIC initialization" loading="lazy"></a>
-        <figcaption><b>Draft error.</b> Top: five consecutive replans; RePIC carries each unexecuted suffix into the next chunk. Bottom: DraftRMS per action step on a log scale.</figcaption>
+        <figcaption><b>Draft error.</b> Top: five consecutive replans. Bottom: draft error (DraftRMS) per action step, log scale.</figcaption>
       </figure>
       <div class="prose" style="margin-top:2rem">
-        <p>Reuse supplies only an initialization. Every refinement round evaluates the velocity field under the current observation, so a stale plan gets corrected rather than committed to.</p>
+        <p>Reuse only initializes: every refinement round re-evaluates the velocity field under the current observation.</p>
       </div>
       <figure class="fig">
         <a href="static/images/correction.png" target="_blank" rel="noopener"><img src="static/images/correction.png" width="2400" height="830" alt="Two replans of a place-burger-fries rollout where refinement redirects the reused trajectory toward the burger and into the tray" loading="lazy"></a>
-        <figcaption><b>Refinement corrects the reused trajectory.</b> In two replans of a <i>place burger fries</i> rollout, refinement (teal) redirects the reused trajectory (amber) toward the burger when grasping and down into the tray when placing.</figcaption>
+        <figcaption><b>Refinement corrects the reused trajectory.</b> In two replans of <i>place burger fries</i>, refinement (teal) redirects the reused trajectory (amber) toward the burger and into the tray.</figcaption>
       </figure>
     </div>
   </section>
@@ -219,9 +211,11 @@
     <div class="wrap">
       <h2 class="title">Faster at comparable success</h2>
       <div class="prose">
-        <p>RePIC reduces Fast-WAM latency 2.66&times; on RoboTwin 2.0 (91.8% success, unchanged) and 2.75&times; on LIBERO (97.55% to 97.35%). RePIC-Flash adds a CUDA Graph backend on LIBERO and a TensorRT FP16 backend on RoboTwin. On &pi;<sub>0.5</sub> and GR00T N1.5 the same sampler gives 1.14&times; and 1.68&times; without retraining; the gain depends on the sampler&rsquo;s share of latency and on the cost of a batched call relative to a single one.</p>
+        <p>Latency drops 2.66&times; on RoboTwin 2.0 (91.8% success, unchanged) and 2.75&times; on LIBERO (97.55% to 97.35%). The same sampler gives 1.14&times; on &pi;<sub>0.5</sub> and 1.68&times; on GR00T N1.5 without retraining.</p>
       </div>
 
+      <details class="more">
+        <summary>Full results on RoboTwin 2.0</summary>
       <div class="table-wrap">
         <table class="data">
           <caption>RoboTwin 2.0: 50 tasks, clean and randomized, 100 episodes each</caption>
@@ -243,7 +237,10 @@
         </table>
       </div>
       <p class="tnote">Success rate in %. Speed is relative to Fast-WAM. &dagger; Inferred from the reported speed-up and the reference latency.</p>
+      </details>
 
+      <details class="more">
+        <summary>Full results on LIBERO</summary>
       <div class="table-wrap">
         <table class="data">
           <caption>LIBERO: four suites, 50 episodes per task</caption>
@@ -270,10 +267,11 @@
         </table>
       </div>
       <p class="tnote">Success rate in %. Speed is relative to the same backbone (VLAs) or to Fast-WAM (WAMs). &dagger; Inferred from the reported speed-up and the reference latency.</p>
+      </details>
 
       <h3 class="sub-title">What each part buys</h3>
       <div class="prose">
-        <p>Ablations on LIBERO with Fast-WAM. A batched call counts as one sequential call, and the cold-start draft call is included. Parallel refinement alone cuts the calls from 10 to 4; reuse brings them to 2.22. RePIC with all ten intervals is also faster than the three-step baseline while keeping 0.75 points more success.</p>
+        <p>Ablations on LIBERO with Fast-WAM; a batched call counts as one sequential call. Parallel refinement alone cuts calls from 10 to 4, and reuse brings them to 2.22.</p>
       </div>
       <div class="two">
         <div class="table-wrap">
@@ -308,13 +306,10 @@
 
       <figure class="fig">
         <a href="static/images/sensitivity.png" target="_blank" rel="noopener"><img src="static/images/sensitivity.png" width="2400" height="1007" alt="Success, sequential calls and latency as the tolerance tau and the window size p vary" loading="lazy"></a>
-        <figcaption><b>Sensitivity.</b> A looser tolerance <var>&tau;</var> lowers calls and latency but also success; a smaller window <var>p</var> needs more calls. The default <var>&tau;</var> = 0.05, <var>p</var> = 10 reaches 97.35% success with 2.22 calls per chunk.</figcaption>
+        <figcaption><b>Sensitivity.</b> A looser tolerance <var>&tau;</var> lowers calls and latency but also success; a smaller window <var>p</var> needs more calls. Defaults: <var>&tau;</var> = 0.05, <var>p</var> = 10.</figcaption>
       </figure>
 
-      <h3 class="sub-title">Scope</h3>
-      <div class="prose">
-        <p>RePIC applies to deterministic flow samplers whose states at different noise levels can be batched. It trades batched computation and memory (the cache stores (<var>S</var>+1)<var>Hd</var> values) for a shorter sequential path, so we report wall-clock latency next to call counts. It is evaluated under the standard receding-horizon protocol of each benchmark; abrupt observation changes are outside this scope.</p>
-      </div>
+      <p class="tnote">RePIC applies to deterministic flow samplers whose states at different noise levels can be batched. It trades batched compute and memory for a shorter sequential path.</p>
     </div>
   </section>
 
@@ -322,7 +317,7 @@
     <div class="wrap">
       <h2 class="title">On a real robot and in simulation</h2>
       <div class="prose">
-        <p>We deploy Fast-WAM with and without RePIC on an Agilex Piper arm with the same GPU, using the RoboTwin 2.0 checkpoint fine-tuned on 400 real demonstrations mixed with simulation data. With RePIC the policy succeeds in 62 of 80 trials (77.5%) versus 53 (66.3%) for the original sampler, with higher success on three of four tasks. On hardware the control cycle is dominated by executing the action prefix, so faster generation shortens the pause at each replan rather than the task duration; at 20 trials per task the difference is within trial-to-trial variation.</p>
+        <p>We run Fast-WAM with and without RePIC on an Agilex Piper arm. RePIC succeeds in 62 of 80 trials (77.5%) versus 53 (66.3%), with higher success on three of four tasks. At 20 trials per task, the differences are within trial-to-trial variation.</p>
       </div>
 
       <div class="video-main">
@@ -330,7 +325,7 @@
           <source src="static/videos/real_robot_overview.mp4" type="video/mp4">
         </video>
       </div>
-      <p class="tnote">Supplementary demo: Fast-WAM (left) and RePIC (right), synchronous inference without post-processing, real time.</p>
+      <p class="tnote">Fast-WAM (left) and RePIC (right), real time.</p>
 
       <div class="pairs">
         <div class="pair">
@@ -362,7 +357,7 @@
 
       <figure class="fig">
         <a href="static/images/real_robot.png" target="_blank" rel="noopener"><img src="static/images/real_robot.png" width="2400" height="495" alt="Stack Three Bowls rollout and success rates on four real-world tasks for Fast-WAM and RePIC" loading="lazy"></a>
-        <figcaption><b>Real-world deployment.</b> Left: a rollout of Stack Three Bowls. Right: success over 20 trials per task. Overall 66.3% for Fast-WAM and 77.5% with RePIC.</figcaption>
+        <figcaption><b>Real-world deployment.</b> Success over 20 trials per task: 66.3% for Fast-WAM, 77.5% with RePIC.</figcaption>
       </figure>
 
       <h3 class="sub-title">RoboTwin 2.0 rollouts</h3>
