@@ -1,0 +1,18 @@
+{
+  "_comment": {
+    "num_inference_steps": "S=10 from the RePIC paper and the original LIBERO policy setup.",
+    "picard_window": "Picard window p=10 from the RePIC paper.",
+    "picard_tol": "Picard tolerance tau=0.05 from the RePIC paper.",
+    "r_max": "Original LIBERO OpenPI replan_steps=5; this is the fixed Rmax.",
+    "dynamic_replan_enabled": "False because Rmax=Rmin=H/2 for pi0.5 LIBERO (H=10).",
+    "dynamic_replan_log_mean": "Log-normal mu from RePIC Eq. 8; unused while dynamic replan is disabled.",
+    "dynamic_replan_log_std": "Log-normal s from RePIC Eq. 8; unused while dynamic replan is disabled."
+  },
+  "num_inference_steps": 10,
+  "picard_window": 10,
+  "picard_tol": 0.05,
+  "r_max": 5,
+  "dynamic_replan_enabled": false,
+  "dynamic_replan_log_mean": -3.5,
+  "dynamic_replan_log_std": 0.5
+}
