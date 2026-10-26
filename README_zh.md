@@ -1,4 +1,4 @@
-# Don't Throw Away the Solution: Training-Free Acceleration of Flow-Based Robot Policies
+# Don't Throw Away the Solution: Reusing Denoising Trajectories for Fast Robot Control
 
 <div align="center">
   <a href="./README.md"><img src="https://img.shields.io/badge/README-English-111111.svg"></a>
@@ -17,7 +17,7 @@
   </a>
 </div>
 
-本仓库是上述论文 **RePIC**（别丢掉解：面向流匹配机器人策略的免训练加速）的官方实现。RePIC 是一种免训练的采样器：它复用上一次重规划（replan）丢弃的求解轨迹来初始化下一次求解，并通过批量不动点更新对其进行修正。`main` 分支基于 [Fast-WAM](https://github.com/yuantianyuan01/FastWAM)，另提供 π0.5（`pi` 分支）和 GR00T N1.5（`gr00t` 分支）的实现。
+本仓库是上述论文 **RePIC**（别丢掉解：复用去噪轨迹实现机器人快速控制）的官方实现。RePIC 是一种免训练的采样器：它复用上一次重规划（replan）丢弃的求解轨迹来初始化下一次求解，并通过批量不动点更新对其进行修正。`main` 分支基于 [Fast-WAM](https://github.com/yuantianyuan01/FastWAM)，另提供 π0.5（`pi` 分支）和 GR00T N1.5（`gr00t` 分支）的实现。
 
 ## 📄 摘要
 
@@ -258,7 +258,7 @@ RePIC 建立在以下项目之上：
 
 ```bibtex
 @misc{wu2026repic,
-  title={Don't Throw Away the Solution: Training-Free Acceleration of Flow-Based Robot Policies},
+  title={Don't Throw Away the Solution: Reusing Denoising Trajectories for Fast Robot Control},
   author={Xianjin Wu and Xian Li and Jianxiang Tang and Dingkang Liang and Xiang Bai},
   year={2026},
   note={Preprint}

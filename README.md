@@ -1,4 +1,4 @@
-# Don't Throw Away the Solution: Training-Free Acceleration of Flow-Based Robot Policies
+# Don't Throw Away the Solution: Reusing Denoising Trajectories for Fast Robot Control
 
 <div align="center">
   <a href="./README.md"><img src="https://img.shields.io/badge/README-English-111111.svg"></a>
@@ -258,7 +258,7 @@ If you find this repository useful in your research, please consider giving a st
 
 ```bibtex
 @misc{wu2026repic,
-  title={Don't Throw Away the Solution: Training-Free Acceleration of Flow-Based Robot Policies},
+  title={Don't Throw Away the Solution: Reusing Denoising Trajectories for Fast Robot Control},
   author={Xianjin Wu and Xian Li and Jianxiang Tang and Dingkang Liang and Xiang Bai},
   year={2026},
   note={Preprint}
