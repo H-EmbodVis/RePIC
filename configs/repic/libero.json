@@ -1,0 +1,24 @@
+{
+  "_comment": {
+    "action_horizon": "H=16 from the GR00T N1.5 LIBERO fine-tune and modality configuration.",
+    "num_inference_steps": "S=4 from the GR00T N1.5 LIBERO checkpoint configuration.",
+    "picard_window": "p=4 from the RePIC paper's GR00T N1.5 setting.",
+    "picard_tol": "tau=0.1 from the RePIC paper's GR00T N1.5 setting.",
+    "r_max": "The original GR00T LIBERO evaluator consumes one action per replan; fixed Rmax=1.",
+    "r_min": "Rmin=ceil(H/2)=8; commitment is disabled because Rmax <= Rmin.",
+    "threshold_action_steps": "Prefix criterion over the executed action prefix; Rmax=1.",
+    "dynamic_replan_enabled": "False because Rmax=1 <= Rmin=8.",
+    "dynamic_replan_log_mean": "Log-normal mu from RePIC Eq. 8; unused while dynamic replan is disabled.",
+    "dynamic_replan_log_std": "Log-normal sigma from RePIC Eq. 8; unused while dynamic replan is disabled."
+  },
+  "action_horizon": 16,
+  "num_inference_steps": 4,
+  "picard_window": 4,
+  "picard_tol": 0.1,
+  "r_max": 1,
+  "r_min": 8,
+  "threshold_action_steps": 1,
+  "dynamic_replan_enabled": false,
+  "dynamic_replan_log_mean": -3.5,
+  "dynamic_replan_log_std": 0.5
+}
